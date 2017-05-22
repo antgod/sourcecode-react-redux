@@ -62,7 +62,7 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
   const finalMergeProps = mergeProps || defaultMergeProps
 
 
-  // pure配置为 true 时，Connect 中会定义 shouldComponentUpdate 方法并使用浅对比判断前后两次 props 是否发生了变化，以此来减少不必要的刷新。
+  // pure配置为 false 时，connect组件接受到属性时，必然刷新。
   // withRef布尔值，默认为 false。如果设置为 true，在装饰传入的 React 组件时，Connect 会保存一个对该组件的 refs 引用，
   // 你可以通过 getWrappedInstance 方法来获得该 refs，并最终获得原始的 DOM 节点。
   const { pure = true, withRef = false } = options
@@ -116,20 +116,8 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
         this.clearCache()
       }
 
-      shouldComponentUpdate() {
-        // 这里通常都是hasStoreStateChanged = true, 其他两项很少生效
-        return !pure || this.haveOwnPropsChanged || this.hasStoreStateChanged
-      }
-
       componentDidMount() {
         this.trySubscribe()
-      }
-
-      // 接受参数，connect属性(目前只有store),很少能用到，因为都是用Provider传递store的
-      componentWillReceiveProps(nextProps) {
-        if (!pure || !shallowEqual(nextProps, this.props)) {
-          this.haveOwnPropsChanged = true
-        }
       }
 
       // 组件卸载时候取消订阅，并且清空缓存
@@ -138,8 +126,16 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
         this.clearCache()
       }
 
-      isSubscribed() {
-        return typeof this.unsubscribe === 'function'
+      componentWillReceiveProps(nextProps) {
+        // 当前组件的属性发生变化时候
+        if (!pure || !shallowEqual(nextProps, this.props)) {
+          this.haveOwnPropsChanged = true
+        }
+      }
+
+      shouldComponentUpdate() {
+        // 如果pure为false 或者 组件自己的属性有变化 或者 storeState有变化，更新组件
+        return !pure || this.haveOwnPropsChanged || this.hasStoreStateChanged
       }
 
       handleChange() {
@@ -156,7 +152,7 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
         }
 
         if (pure && !this.doStatePropsDependOnOwnProps) {
-          // 当前状态和上次状态深度比较
+          // 当前状态和上次状态浅比较
           const haveStatePropsChanged = tryCatch(this.updateStatePropsIfNeeded, this)
           // 如果没有变化，退出
           if (!haveStatePropsChanged) {
@@ -206,6 +202,7 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
         this.finalMapDispatchToProps = null
         this.finalMapStateToProps = null
       }
+
 
       // 这个逻辑和计算state相同
       configureFinalMapDispatch(store, props) {
@@ -288,7 +285,7 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
         return stateProps
       }
 
-      // 深度比较 props是否有变化
+      // 是否有必要更新state属性，并且计算属性
       updateStatePropsIfNeeded() {
         const nextStateProps = this.computeStateProps(this.store, this.props)
         if (this.stateProps && shallowEqual(nextStateProps, this.stateProps)) {
@@ -300,9 +297,8 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
         return true
       }
 
-      /* 计算需要传递给组件的所有事件 */
+      // 是否有必要更新事件，并且计算事件
       updateDispatchPropsIfNeeded() {
-        debugger
         const nextDispatchProps = this.computeDispatchProps(this.store, this.props)
         if (this.dispatchProps && shallowEqual(nextDispatchProps, this.dispatchProps)) {
           return false
@@ -312,7 +308,7 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
         return true
       }
 
-      /* 计算需要传递给组件的所有属性 */
+      // 是否必要更新组件所有属性，并且计算所有属性
       updateMergedPropsIfNeeded() {
         const nextMergedProps = computeMergedProps(this.stateProps, this.dispatchProps, this.props)
         if (this.mergedProps && checkMergedEquals && shallowEqual(nextMergedProps, this.mergedProps)) {
@@ -342,17 +338,19 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
           throw statePropsPrecalculationError
         }
 
+        // 是否再次计算state属性
         let shouldUpdateStateProps = true
+        // 是否计算事件属性
         let shouldUpdateDispatchProps = true
 
         // 判断是否应该更新state与dispatch的属性
         if (pure && renderedElement) {
-          // 如果组件自己属性变化，state变化并且经过浅对比 || 组件自己的属性变化并且mapPropsToState依赖自己的属性
+          // 如果组件storeState发生变化 || 组件自己的属性变化并且mapPropsToState依赖自己的属性
           shouldUpdateStateProps = hasStoreStateChanged || (
             haveOwnPropsChanged && this.doStatePropsDependOnOwnProps
           )
 
-          // 如果组件自己属性变化，并且传入的mapDispatchToProps有两个参数时，会重新触发计算
+          // 如果组件自己属性变化，事件属性依赖自己的属性
           shouldUpdateDispatchProps =
             haveOwnPropsChanged && this.doDispatchPropsDependOnOwnProps
         }
@@ -406,6 +404,7 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
       }
     }
 
+    // Connect组件上赋了displayName和（展示名称，也就是组件类型）和WrappedComponent（被包装组件类）
     Connect.displayName = connectDisplayName
     Connect.WrappedComponent = WrappedComponent
 
@@ -430,6 +429,7 @@ export default function connect(mapStateToProps, mapDispatchToProps, mergeProps,
       }
     }
 
+    // 将react组件中的所有属性拷贝到Connect组件中
     return hoistStatics(Connect, WrappedComponent)
   }
 }

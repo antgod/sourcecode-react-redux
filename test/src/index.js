@@ -65,7 +65,7 @@ function select(state) {
   }
 }
 
-function mapDispatchToProps(dispatch, a) {
+function mapDispatchToProps(dispatch) {
   return { actions: bindActionCreators(actions, dispatch) }
 }
 
