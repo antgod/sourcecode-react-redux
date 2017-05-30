@@ -12,7 +12,7 @@ export const SET_VISIBILITY_FILTER = 'SET_VISIBILITY_FILTER'
 
 export const VisibilityFilters = {
   SHOW_ALL: 'SHOW_ALL',
-  SHOW_COMPLETED: 'SHOW_COMPLETED',
+  SHOW_COMAPLETED: 'SHOW_COMPLETED',
   SHOW_ACTIVE: 'SHOW_ACTIVE'
 };
 
@@ -32,6 +32,25 @@ export function setVisibilityFilter(filter) {
   return { type: SET_VISIBILITY_FILTER, filter }
 }
 
+export function addTodoAsync(text) {
+  return dispatch => {
+    setTimeout(() => {
+      dispatch(addTodo(text));
+    }, 1000);
+  }
+}
+
+export function addTodoPromise(text) {
+  return new Promise((res, rej) => {
+    setTimeout(() => {
+      res({ text })
+    }, 1000);
+  }).then(response => ({
+    type: 'ADD_TODO',
+    text: response.text,
+  }))
+}
+
 export default {
-  addTodo, completeTodo, setVisibilityFilter,
+  addTodo, completeTodo, setVisibilityFilter, addTodoAsync, addTodoPromise,
 }

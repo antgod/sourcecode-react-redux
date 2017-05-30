@@ -1,8 +1,9 @@
 import React, { Component, PropTypes } from 'react'
 import ReactDOM  from 'react-dom'
-import { createStore, bindActionCreators } from 'redux'
+import { createStore, bindActionCreators, applyMiddleware, compose } from 'redux'
 import connect from '../../src/components/connect'
 import Provider from '../../src/components/Provider'
+import ReduxThunk from 'redux-thunk'
 import actions, { VisibilityFilters } from './actions'
 import AddTodo from './components/AddTodo'
 import TodoList from './components/TodoList'
@@ -17,7 +18,14 @@ class App extends Component {
         <AddTodo
           onAddClick={text =>
             actions.addTodo(text)
-          }/>
+          }
+          onAddClickAsync={text =>
+            actions.addTodoAsync(text)
+          }
+          onAddClickPromise={text =>
+            actions.addTodoPromise(text)
+          }
+        />
         <TodoList
           todos={visibleTodos}
           onTodoClick={index =>
@@ -72,7 +80,38 @@ function mapDispatchToProps(dispatch) {
 const FinalApp = connect(select, mapDispatchToProps)(App)
 
 // 包装 component ，注入 dispatch 和 state 到其默认的 connect(select)(App) 中；
-let store = createStore(todoApp)
+
+const logger = store => next => action => {
+  console.log('logger: ', action);
+  next(action);
+  console.log('logger finish: ', action);
+}
+
+const thunk = ({ dispatch, getState }) => next => action => {
+  if (typeof action === 'function') {
+    return action(dispatch);
+  }
+
+  return next(action);
+}
+
+const promise = ({ dispatch }) => next => action => {
+  function isPromise(val) {
+    return val && typeof val.then === 'function';
+  }
+  // 如果action是异步函数，则dispatch后直接返回数据，当然数据需要经过ActionCreate包装处理
+  return isPromise(action)
+    ? action.then(dispatch)
+    : next(action);
+
+  return next(action)
+}
+
+const finalCreateStore = compose(
+  applyMiddleware(logger, promise, thunk)
+)(createStore)
+
+let store = finalCreateStore(todoApp)
 
 ReactDOM.render(
   <Provider store={store}>
